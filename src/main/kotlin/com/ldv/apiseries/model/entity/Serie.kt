@@ -18,7 +18,7 @@ class Serie constructor(
     var premise: String?,
 
     // Association One-to-Many avec Saison (chaque série peut avoir plusieurs saisons)
-    @OneToMany(mappedBy = "serie", orphanRemoval = true)
+    @OneToMany(mappedBy = "serie",cascade = arrayOf(CascadeType.REMOVE), orphanRemoval = true)
     var saisons: MutableList<Saison> = mutableListOf(),
 
     // Association Many-to-Many avec Genre (une série peut avoir plusieurs genres)

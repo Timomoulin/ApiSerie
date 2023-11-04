@@ -7,6 +7,7 @@ import jakarta.persistence.EntityNotFoundException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import kotlin.jvm.optionals.getOrNull
 
 /**
  * Service pour la gestion des entités Serie.
@@ -45,6 +46,10 @@ class SerieService () {
         )
     }
 
+    fun getByNom(unNom:String):List<SerieDto>{
+        return this.serieDAO.findByNomContainsIgnoreCaseOrderByNomAsc(unNom).map { this.convertSerieToDto(it) };
+    }
+
     /**
      * Convertit un SerieDto en une entité Serie.
      *
@@ -62,7 +67,6 @@ class SerieService () {
         )
         val genres = dto.genres.map { this.genreService.convertDtoToGenre(it) }
         val saisons = dto.saisons.map { this.saisonService.convertDtoToSaison(it) }
-
         // Associe les entités genres et saisons à la série
         serie.genres.addAll(genres)
         serie.saisons.addAll(saisons)
@@ -106,10 +110,14 @@ class SerieService () {
      * @param serieDto Le SerieDto à partir duquel créer une nouvelle série.
      * @return Le SerieDto représentant la nouvelle série créée.
      */
-    @Transactional
+@Transactional
     fun createSerie(serieDto: SerieDto): SerieDto {
         val serie = convertDtoToSerie(serieDto)
         val savedSerie = this.serieDAO.save(serie)
+        savedSerie.genres.forEach({it.series.add(savedSerie)})
+        savedSerie.saisons.forEach({it.serie=savedSerie})
+        this.genreService.saveAll(savedSerie.genres)
+        this.saisonService.saveAll(savedSerie.saisons)
         return convertSerieToDto(savedSerie)
     }
 
@@ -121,7 +129,6 @@ class SerieService () {
      * @return Le SerieDto représentant la série mise à jour.
      * @throws EntityNotFoundException si la série spécifiée n'est pas trouvée.
      */
-    @Transactional
     fun updateSerie(id: Long, serieDto: SerieDto): SerieDto {
         val existingSerie = this.serieDAO.findById(id)
             .orElseThrow { EntityNotFoundException("Série introuvable avec l'ID : $id") }
@@ -129,7 +136,37 @@ class SerieService () {
         val updatedSerie = convertDtoToSerie(serieDto)
         updatedSerie.id = existingSerie.id // Assurez-vous que l'ID ne change pas
 
+        // Associez les genres de la série mise à jour à la série existante
+        for (genre in updatedSerie.genres) {
+            if (!existingSerie.genres.contains(genre)) {
+                genre.series.add(existingSerie)
+            }
+        }
+        // Retirez la référence de la série existante des genres qui ne sont plus associés à la série mise à jour
+        for (genre in existingSerie.genres.toList()) {
+            if (updatedSerie.genres.find ({ it.id==genre.id })==null) {
+                genre.series.remove(existingSerie)
+                this.genreService.save(genre)
+            }
+        }
+        // Mettez à jour les saisons avec la série existante
+        for (saison in updatedSerie.saisons) {
+            saison.serie = existingSerie
+        }
+        for (saison in existingSerie.saisons.toList()) {
+
+            if (updatedSerie.saisons.find({it.id==saison.id})==null) {
+                this.saisonService.delete(saison)
+            }
+        }
+
+        // Sauvegardez la série mise à jour
         val savedSerie = this.serieDAO.save(updatedSerie)
+
+        // Sauvegardez les genres et saisons mis à jour
+        this.genreService.saveAll(savedSerie.genres)
+        this.saisonService.saveAll(savedSerie.saisons)
+
         return convertSerieToDto(savedSerie)
     }
 
@@ -142,9 +179,16 @@ class SerieService () {
      */
     @Transactional
     fun deleteSerie(id: Long) {
-        if (!this.serieDAO.existsById(id)) {
+        val serie=this.serieDAO.findById(id).getOrNull()
+        if (serie==null) {
             throw EntityNotFoundException("Série introuvable avec l'ID : $id")
         }
-        this.serieDAO.deleteById(id)
+        else{
+            serie.saisons.forEach({this.saisonService.delete(it)})
+            serie.genres.forEach({it.series.remove(serie)})
+            this.genreService.saveAll(serie.genres)
+            this.serieDAO.deleteById(id)
+        }
+
     }
 }

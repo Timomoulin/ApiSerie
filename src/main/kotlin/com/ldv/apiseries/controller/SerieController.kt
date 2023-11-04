@@ -37,6 +37,17 @@ class SerieController {
     }
 
     /**
+     * Récupère les séries a partir de leurs nom.
+     *
+     * @param nomRechercher Le nom ou une partie du nom
+     * @return Les SerieDto qui contiennent dans leurs nom la valeur rechercher
+     */
+    @GetMapping("/series/nom/{nomRechercher}")
+    fun rechercheNom(@PathVariable nomRechercher: String): List<SerieDto> {
+        return serieService.getByNom(nomRechercher)
+    }
+
+    /**
      * Crée une nouvelle série en utilisant un SerieDto valide.
      *
      * @param serieDto Le SerieDto contenant les informations de la nouvelle série.

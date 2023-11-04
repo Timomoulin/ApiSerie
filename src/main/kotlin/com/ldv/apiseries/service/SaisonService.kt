@@ -5,9 +5,10 @@ import com.ldv.apiseries.dto.SaisonDto
 import com.ldv.apiseries.model.entity.Saison
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
-class SaisonService (@Autowired saisonDAO: SaisonDAO) {
+class SaisonService (@Autowired val saisonDAO: SaisonDAO) {
     fun convertSaisonToDto(saison: Saison): SaisonDto {
         return SaisonDto(
             id = saison.id,
@@ -26,5 +27,15 @@ class SaisonService (@Autowired saisonDAO: SaisonDAO) {
             annee = dto.annee,
             nombreEpisode = dto.nombreEpisode)
 
+    }
+
+    @Transactional
+    fun saveAll(saisons: List<Saison>) {
+        saisonDAO.saveAll(saisons)
+    }
+
+    @Transactional
+    fun delete(saison: Saison){
+        this.saisonDAO.delete(saison)
     }
 }
